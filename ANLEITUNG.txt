@@ -1,0 +1,16 @@
+3D DRUCK ALEX – GitHub Pages Upload
+
+1. Auf github.com/new ein PUBLIC Repository mit Namen 3d-druck-alex anlegen.
+2. Im Repository Add file > Upload files wählen.
+3. NUR index.html, config.js und robots.txt aus diesem Ordner hochladen (nicht die ZIP).
+4. Commit changes klicken.
+5. Settings > Pages > Build and deployment > Deploy from a branch > main > /(root) > Save.
+6. Nach einigen Minuten steht oben auf Settings > Pages die öffentliche Website-Adresse.
+7. Test: Mit einem zweiten Gerät eine TESTANFRAGE schicken. Dann im Personalzugang anmelden und prüfen, ob sie erscheint.
+
+ACHTUNG: Die Website ist noch NICHT online, und die Verbindung wurde nicht live getestet.
+Veröffentliche erst echte Kundendaten, nachdem Login und Zugriffsschutz geprüft wurden.
+Die bestehende lokale V19-Speicherung wird nicht automatisch importiert.
+Der Admin-Login verwendet Supabase Authentication.
+Die Statusabfrage nur per E-Mail ist aus Datenschutzgründen deaktiviert.
+Bei mehreren gleichzeitigen Admin-Änderungen kann der letzte Speicherstand gewinnen.
