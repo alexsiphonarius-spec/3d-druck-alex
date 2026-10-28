@@ -82,7 +82,25 @@ h2{color:#f9fbff;font-size:26px}h3{color:#d8efff}.total{color:#6fe6a8}
 <script src="config.js"></script>
 <script>
 const cloudConfigured=Boolean(window.ALEX_SUPABASE_URL && window.ALEX_SUPABASE_ANON_KEY && !window.ALEX_SUPABASE_URL.includes('HIER'));
-const cloud=cloudConfigured?window.supabase.createClient(window.ALEX_SUPABASE_URL,window.ALEX_SUPABASE_ANON_KEY):null;
+let cloud=(cloudConfigured && window.supabase?.createClient)?window.supabase.createClient(window.ALEX_SUPABASE_URL,window.ALEX_SUPABASE_ANON_KEY):null;
+async function recoverCloud(){
+  if(cloud)return true;
+  if(!window.ALEX_SUPABASE_URL || !window.ALEX_SUPABASE_ANON_KEY){
+    try {const response=await fetch('./config.js',{cache:'no-store'});if(!response.ok)throw Error('HTTP '+response.status);const source=await response.text();
+      // config.js is a local, administrator-maintained file in the same repository.
+      (0,eval)(source);
+    } catch(err){E('staff-feedback').textContent='Konfiguration nicht geladen: '+err.message+' (Adresse der Seite prüfen).';return false;}
+  }
+  if(!window.supabase?.createClient){
+    for(const src of ['https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js','https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js']){
+      try{await new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=()=>reject(Error('Bibliothek nicht erreichbar'));document.head.appendChild(script)});if(window.supabase?.createClient)break;}catch(e){}
+    }
+  }
+  if(!window.ALEX_SUPABASE_URL || !window.ALEX_SUPABASE_ANON_KEY){E('staff-feedback').textContent='config.js geladen, aber Supabase-Einstellungen fehlen.';return false;}
+  if(!window.supabase?.createClient){E('staff-feedback').textContent='Supabase-Bibliothek konnte nicht geladen werden. Bitte Netzwerk/Browser-Erweiterungen prüfen.';return false;}
+  try{cloud=window.supabase.createClient(window.ALEX_SUPABASE_URL,window.ALEX_SUPABASE_ANON_KEY);return true;}
+  catch(err){E('staff-feedback').textContent='Supabase konnte nicht gestartet werden: '+err.message;return false;}
+}
 let cloudAdmin=false;
 async function cloudRefresh(){if(!cloudAdmin)return;const {data:row,error}=await cloud.from('alex_admin_state').select('state').eq('id',1).single();if(error){alert('Cloud-Laden fehlgeschlagen: '+error.message);return}if(row?.state){Object.assign(data,row.state);if(!Array.isArray(data.requests))data.requests=[];const {data:incoming,error:ie}=await cloud.from('alex_requests').select('id,payload,created_at').order('created_at',{ascending:true});if(!ie){for(const entry of incoming){if(!data.requests.some(r=>r.id===entry.id))data.requests.push({...entry.payload,id:entry.id})}}reconcileRequests();render()}}
 async function cloudSave(){if(!cloudAdmin)return;const {error}=await cloud.from('alex_admin_state').upsert({id:1,state:data});if(error)alert('Cloud-Speichern fehlgeschlagen: '+error.message)}
@@ -114,7 +132,7 @@ function renderTracking(){
  box.innerHTML='<h3>Deine gespeicherten Aufträge und Anfragen ('+(orders.length+requests.length)+')</h3>'+orderHtml+requestHtml;
 }
 async function logoutStaff(){cloudAdmin=false;staffUnlocked=false;E('staff-nav').hidden=true;E('staff-password').value='';if(cloud)await cloud.auth.signOut();tab('customer-portal')}
-E('staff-login-form').addEventListener('submit',async function(e){e.preventDefault();if(!cloud){E('staff-feedback').textContent='Cloud noch nicht eingerichtet. Bitte config.js ausfüllen.';return}const email=E('staff-email').value.trim();const pass=E('staff-password').value;const {data:auth,error}=await cloud.auth.signInWithPassword({email,password:pass});E('staff-password').value='';if(error){E('staff-feedback').textContent='Anmeldung fehlgeschlagen: '+error.message;return}const {data:allowed,error:ae}=await cloud.from('alex_admin_state').select('id').eq('id',1).single();if(ae||!allowed){await cloud.auth.signOut();E('staff-feedback').textContent='Kein Administratorzugriff.';return}cloudAdmin=true;staffUnlocked=true;E('staff-nav').hidden=false;E('staff-feedback').textContent='';await cloudRefresh();tab('customers')});
+E('staff-login-form').addEventListener('submit',async function(e){e.preventDefault();if(!cloud && !(await recoverCloud()))return;const email=E('staff-email').value.trim();const pass=E('staff-password').value;const {data:auth,error}=await cloud.auth.signInWithPassword({email,password:pass});E('staff-password').value='';if(error){E('staff-feedback').textContent='Anmeldung fehlgeschlagen: '+error.message;return}const {data:allowed,error:ae}=await cloud.from('alex_admin_state').select('id').eq('id',1).single();if(ae||!allowed){const reason=ae?('Datenbankprüfung fehlgeschlagen: '+ae.message+' (Code: '+(ae.code||'unbekannt')+'). Bitte Supabase-Tabelle alex_admin_state und deren RLS-Regeln prüfen.'):'Administratorberechtigung nicht gefunden. Bitte die Zugriffsregel für alex_admin_state in Supabase prüfen.';await cloud.auth.signOut();E('staff-feedback').textContent=reason;return}cloudAdmin=true;staffUnlocked=true;E('staff-nav').hidden=false;E('staff-feedback').textContent='';await cloudRefresh();tab('customers')});
 function save(){if(!cloudAdmin){render();return}cloudSave();render()}
 function calc(){let cost=v('ofila')+v('oh')*v('or')+v('og')+v('oo'),extra=cost*v('om')/100;E('breakdown').textContent='Gesamtkosten: '+eur(cost)+' · Aufschlag: '+eur(extra);E('total').textContent='Verkaufspreis: '+eur(cost+extra);return {cost,extra,total:cost+extra}}
 document.querySelectorAll('.calc').forEach(x=>x.addEventListener('input',calc));
