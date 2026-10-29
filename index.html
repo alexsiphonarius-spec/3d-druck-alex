@@ -186,10 +186,10 @@ async function recoverCloud(){
 let cloudAdmin=false;
 async function cloudRefresh(){
  if(!cloudAdmin)return;
- const {data:row,error}=await cloud.from('alex_admin_state').select('data').eq('id',1).maybeSingle();
+ const {data:row,error}=await cloud.from('alex_admin_state').select('state').eq('id',1).maybeSingle();
  if(error){alert('Cloud-Laden fehlgeschlagen: '+error.message);return;}
- if(row?.data && typeof row.data==='object'){
-   Object.assign(data,row.data);
+ if(row?.state && typeof row.state==='object'){
+   Object.assign(data,row.state);
  }
  if(!Array.isArray(data.customers))data.customers=[];
  if(!Array.isArray(data.orders))data.orders=[];
@@ -206,7 +206,7 @@ async function cloudRefresh(){
  }
  reconcileRequests();render();
 }
-async function cloudSave(){if(!cloudAdmin)return;const {error}=await cloud.from('alex_admin_state').upsert({id:1,data:data});if(error)alert('Cloud-Speichern fehlgeschlagen: '+error.message)}
+async function cloudSave(){if(!cloudAdmin)return;const {error}=await cloud.from('alex_admin_state').upsert({id:1,state:data});if(error)alert('Cloud-Speichern fehlgeschlagen: '+error.message)}
 const makeId=()=>('alex-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,11));
 const key='alex3d-demo';let initial=null;try{initial=JSON.parse(localStorage.getItem(key))}catch(err){};const data=initial&&Array.isArray(initial.customers)&&Array.isArray(initial.orders)?initial:{customers:[],orders:[],name:'3D Druck Alex',address:''};
 if(!Array.isArray(data.requests))data.requests=[];
