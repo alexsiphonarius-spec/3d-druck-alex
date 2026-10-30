@@ -201,7 +201,8 @@ async function cloudRefresh(){
  else if(incoming){
    for(const entry of incoming){
      const ix=data.requests.findIndex(r=>r.id===entry.id);
-     if(data.deletedRequestIds.includes(entry.id))continue;\n     const remote={...entry.payload,id:entry.id};
+     if(data.deletedRequestIds.includes(entry.id))continue;
+     const remote={...entry.payload,id:entry.id};
      if(ix<0)data.requests.push(remote);
      else data.requests[ix]={...remote,...data.requests[ix]};
    }
