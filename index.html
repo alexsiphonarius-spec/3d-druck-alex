@@ -194,12 +194,14 @@ async function cloudRefresh(){
  if(!Array.isArray(data.customers))data.customers=[];
  if(!Array.isArray(data.orders))data.orders=[];
  if(!Array.isArray(data.requests))data.requests=[];
+ if(!Array.isArray(data.deletedRequestIds))data.deletedRequestIds=[];
+ data.requests=data.requests.filter(r=>!data.deletedRequestIds.includes(r.id));
  const {data:incoming,error:ie}=await cloud.from('alex_requests').select('id,payload,created_at').order('created_at',{ascending:false});
  if(ie){alert('Kundenanfragen konnten nicht geladen werden: '+ie.message);}
  else if(incoming){
    for(const entry of incoming){
      const ix=data.requests.findIndex(r=>r.id===entry.id);
-     const remote={...entry.payload,id:entry.id};
+     if(data.deletedRequestIds.includes(entry.id))continue;\n     const remote={...entry.payload,id:entry.id};
      if(ix<0)data.requests.push(remote);
      else data.requests[ix]={...remote,...data.requests[ix]};
    }
@@ -313,7 +315,24 @@ E('request-form').onsubmit=async function(e){
  }finally{button.disabled=false;button.textContent='Anfrage absenden';}
  return false;
 };
-function deleteRequest(id){if(!confirm('Diese Anfrage wirklich löschen?'))return;data.requests=data.requests.filter(r=>r.id!==id);save()}
+async function deleteRequest(id){
+ if(!cloudAdmin||!cloud){alert('Bitte zuerst im Personalbereich anmelden.');return}
+ if(!confirm('Diese Anfrage wirklich dauerhaft löschen?'))return;
+ try{
+  const {data:deleted,error}=await cloud.from('alex_requests').delete().eq('id',id).select('id');
+  if(error)throw error;
+  if(!deleted?.length)throw new Error('Keine Anfrage in der Datenbank gelöscht. Bitte die DELETE-Berechtigung prüfen.');
+  data.requests=data.requests.filter(r=>r.id!==id);
+  if(!Array.isArray(data.deletedRequestIds))data.deletedRequestIds=[];
+  if(!data.deletedRequestIds.includes(id))data.deletedRequestIds.push(id);
+  const {error:saveError}=await cloud.from('alex_admin_state').update({state:data}).eq('id',1);
+  if(saveError)throw new Error('Anfrage in alex_requests gelöscht, aber der Verwaltungsstand konnte nicht gespeichert werden: '+saveError.message);
+  render();
+  alert('Anfrage dauerhaft gelöscht.');
+ }catch(err){
+  alert('Löschen nicht vollständig abgeschlossen: '+(err.message||String(err))+' Bitte nach dem Neuladen kontrollieren.');
+ }
+}
 function acceptRequest(id){const r=data.requests.find(x=>x.id===id);if(!r)return;if(r.status==='Übernommen'){alert('Diese Anfrage wurde bereits übernommen.');return}let c=data.customers.find(x=>x.mail&&x.mail.toLowerCase()===r.mail.toLowerCase());if(!c){c={id:makeId(),name:r.name,mail:r.mail,street:r.street,city:r.city};data.customers.push(c)}const number='A-'+String(data.orders.length+1).padStart(3,'0');data.orders.push({id:makeId(),customer:c.id,number,description:r.item+' ('+r.material+', '+r.color+')',qty:r.qty,filament:0,hours:0,rate:10,glue:0,other:0,margin:5,status:'Offen',cost:0,extra:0,total:0,notes:r.notes,payment:r.payment||'Barzahlung',requestedDate:r.date});r.status='Übernommen';r.assignedCustomerId=c.id;save();if(confirm('Auftrag übernommen! Jetzt E-Mail-Bestätigung als Entwurf öffnen?'))notifyStatus(data.orders[data.orders.length-1]);alert('Auftrag '+number+' wurde übernommen. Bitte die tatsächlichen Kosten noch ergänzen.');tab('orders')}
 
 function assignRequest(id){if(!staffUnlocked)return;const r=data.requests.find(x=>x.id===id);if(!r)return;const idField=E('assign-'+id);const customerId=idField?.value;if(!data.customers.some(c=>c.id===customerId)){alert('Bitte einen Kundenordner auswählen.');return}r.assignedCustomerId=customerId;r.manuallyAssigned=true;save();alert('Anfrage wurde dem Kundenordner zugeordnet.');}
@@ -422,7 +441,7 @@ E('alex-save').onclick=async()=>{
  try{
   const {error}=await cloud.from('alex_public_settings').upsert({id:1,design});if(error)throw error;
   data.siteDesign=design;alexApplyDesign(design);E('alex-editor-feedback').textContent='✅ Veröffentlicht! Nach dem Neuladen für alle sichtbar.';
- }catch(err){E('alex-editor-feedback').textContent='❌ '+(err.message||String(err))+' – Bitte zuerst die SQL-Einrichtung ausführen.'}
+ }catch(err){E('alex-editor-feedback').textContent='❌ '+(err.message||String(err))+' – Bitte die beiliegende SQL-Einrichtung prüfen.'}
 };
 let alexSeenIds=null;
 async function alexPollRequests(){
